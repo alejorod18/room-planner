@@ -111,7 +111,7 @@ export const useEditorState = () => {
     };
   };
 
-  const importState = (state: any, pId: string, pName: string) => {
+  const importState = (state: any, pId: string | null, pName: string) => {
     setPixelsPerMeter(state.pixelsPerMeter);
     setFurnitures(state.furnitures);
     setRulerLines(state.rulerLines || []);
