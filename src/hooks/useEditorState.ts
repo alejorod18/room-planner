@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 export interface Furniture {
   id: string;
@@ -34,16 +34,16 @@ export const useEditorState = () => {
   // Calibration state
   const [calibrationLines, setCalibrationLines] = useState<CalibrationLine[]>([]);
 
-  const handleImageUpload = (file: File) => {
+  const handleImageUpload = useCallback((file: File) => {
     const url = URL.createObjectURL(file);
     const img = new window.Image();
     img.src = url;
     img.onload = () => {
       setImage(img);
     };
-  };
+  }, []);
 
-  const addFurniture = (width: number, height: number, label: string) => {
+  const addFurniture = useCallback((width: number, height: number, label: string) => {
     const newFurniture: Furniture = {
       id: Math.random().toString(36).substr(2, 9),
       x: 100,
@@ -53,18 +53,18 @@ export const useEditorState = () => {
       rotation: 0,
       label
     };
-    setFurnitures([...furnitures, newFurniture]);
-  };
+    setFurnitures(prev => [...prev, newFurniture]);
+  }, []);
 
-  const updateFurniture = (id: string, updates: Partial<Furniture>) => {
+  const updateFurniture = useCallback((id: string, updates: Partial<Furniture>) => {
     setFurnitures(prev => prev.map(f => f.id === id ? { ...f, ...updates } : f));
-  };
+  }, []);
 
-  const removeFurniture = (id: string) => {
+  const removeFurniture = useCallback((id: string) => {
     setFurnitures(prev => prev.filter(f => f.id !== id));
-  };
+  }, []);
 
-  const duplicateFurniture = (id: string) => {
+  const duplicateFurniture = useCallback((id: string) => {
     setFurnitures(prev => {
       const original = prev.find(f => f.id === id);
       if (!original) return prev;
@@ -77,12 +77,13 @@ export const useEditorState = () => {
       };
       return [...prev, duplicate];
     });
-  };
+  }, []);
 
   const [projectId, setProjectId] = useState<string | null>(null);
   const [projectName, setProjectName] = useState<string>('');
   const [unit, setUnit] = useState<'m' | 'cm' | 'mm'>('m');
 
+  const imageBase64Ref = useRef<string | null>(null);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
 
   useEffect(() => {
@@ -93,25 +94,28 @@ export const useEditorState = () => {
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.drawImage(image, 0, 0);
-        setImageBase64(canvas.toDataURL('image/png'));
+        const b64 = canvas.toDataURL('image/png');
+        imageBase64Ref.current = b64;
+        setImageBase64(b64);
       }
     } else {
+      imageBase64Ref.current = null;
       setImageBase64(null);
     }
   }, [image]);
 
-  const exportState = () => {
+  const exportState = useCallback(() => {
     return {
-      imageBase64,
+      imageBase64: imageBase64Ref.current,
       pixelsPerMeter,
       furnitures,
       rulerLines,
       calibrationLines,
       unit
     };
-  };
+  }, [imageBase64, pixelsPerMeter, furnitures, rulerLines, calibrationLines, unit]);
 
-  const importState = (state: any, pId: string | null, pName: string) => {
+  const importState = useCallback((state: any, pId: string | null, pName: string) => {
     setPixelsPerMeter(state.pixelsPerMeter);
     setFurnitures(state.furnitures);
     setRulerLines(state.rulerLines || []);
@@ -124,12 +128,14 @@ export const useEditorState = () => {
       const img = new window.Image();
       img.src = state.imageBase64;
       img.onload = () => setImage(img);
+      imageBase64Ref.current = state.imageBase64;
       setImageBase64(state.imageBase64);
     } else {
       setImage(null);
+      imageBase64Ref.current = null;
       setImageBase64(null);
     }
-  };
+  }, []);
 
   return {
     image,

@@ -120,7 +120,7 @@ function App() {
       updateProject(projectId, projectName, state).then(() => {
         loadProjectsList(); // Refresh list to update "last modified"
       }).catch(console.error);
-    }, 1500);
+    }, 3000);
 
     return () => clearTimeout(timeout);
   }, [projectId, projectName, image, furnitures, pixelsPerMeter, calibrationLines]);

@@ -9,7 +9,7 @@ interface FurnitureItemProps {
   draggable: boolean;
 }
 
-export const FurnitureItem: React.FC<FurnitureItemProps> = ({ data, pixelsPerMeter, onChange, draggable }) => {
+export const FurnitureItem: React.FC<FurnitureItemProps> = React.memo(({ data, pixelsPerMeter, onChange, draggable }) => {
   const widthPx = data.width * pixelsPerMeter;
   const heightPx = data.height * pixelsPerMeter;
   
@@ -55,4 +55,4 @@ export const FurnitureItem: React.FC<FurnitureItemProps> = ({ data, pixelsPerMet
       />
     </Group>
   );
-};
+});

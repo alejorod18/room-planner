@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { Stage, Layer, Image as KonvaImage } from 'react-konva';
 import type { ToolType } from './Toolbar';
 import { FurnitureItem } from './FurnitureItem';
@@ -15,7 +15,28 @@ interface FloorPlanEditorProps {
   unit?: 'm' | 'cm' | 'mm';
 }
 
-export const FloorPlanEditor: React.FC<FloorPlanEditorProps> = ({
+/** Stable per-item onChange wrapper */
+const FurnitureItemWrapper = React.memo(({ data, pixelsPerMeter, updateFurniture, draggable }: {
+  data: Furniture;
+  pixelsPerMeter: number;
+  updateFurniture: (id: string, updates: Partial<Furniture>) => void;
+  draggable: boolean;
+}) => {
+  const onChange = useCallback((updates: Partial<Furniture>) => {
+    updateFurniture(data.id, updates);
+  }, [data.id, updateFurniture]);
+
+  return (
+    <FurnitureItem
+      data={data}
+      pixelsPerMeter={pixelsPerMeter}
+      onChange={onChange}
+      draggable={draggable}
+    />
+  );
+});
+
+export const FloorPlanEditor: React.FC<FloorPlanEditorProps> = React.memo(({
   activeTool,
   image,
   pixelsPerMeter,
@@ -42,7 +63,7 @@ export const FloorPlanEditor: React.FC<FloorPlanEditorProps> = ({
     return () => observer.disconnect();
   }, []);
 
-  const handleWheel = (e: any) => {
+  const handleWheel = useCallback((e: any) => {
     e.evt.preventDefault();
 
     const scaleBy = 1.05;
@@ -66,18 +87,88 @@ export const FloorPlanEditor: React.FC<FloorPlanEditorProps> = ({
       x: pointer.x - mousePointTo.x * newScale,
       y: pointer.y - mousePointTo.y * newScale,
     });
-  };
+  }, []);
 
-  const handleDragEnd = (e: any) => {
+  const handleDragEnd = useCallback((e: any) => {
     if (e.target === e.target.getStage()) {
       setStagePos({ x: e.target.x(), y: e.target.y() });
     }
-  };
+  }, []);
 
   const lastCenter = useRef<{x: number, y: number} | null>(null);
   const lastDist = useRef(0);
 
-  const handleTouchMove = (e: any) => {
+  const [currentRulerPoints, setCurrentRulerPoints] = useState<number[]>([]);
+  const isDrawingRuler = useRef(false);
+  const activeToolRef = useRef(activeTool);
+  activeToolRef.current = activeTool;
+
+  const onAddCalibrationLineRef = useRef(onAddCalibrationLine);
+  onAddCalibrationLineRef.current = onAddCalibrationLine;
+
+  const currentRulerPointsRef = useRef(currentRulerPoints);
+  currentRulerPointsRef.current = currentRulerPoints;
+
+  useEffect(() => {
+    if (activeTool !== 'ruler' && activeTool !== 'calibrate') {
+      setCurrentRulerPoints([]);
+      isDrawingRuler.current = false;
+    }
+  }, [activeTool]);
+
+  const handleStageMouseDown = useCallback((e: any) => {
+    if (activeToolRef.current !== 'ruler' && activeToolRef.current !== 'calibrate') return;
+    const stage = e.target.getStage();
+    const pos = stage.getRelativePointerPosition();
+    if (pos) {
+      setCurrentRulerPoints([pos.x, pos.y, pos.x, pos.y]);
+      isDrawingRuler.current = true;
+    }
+  }, []);
+
+  const handleStageMouseMove = useCallback((e: any) => {
+    const tool = activeToolRef.current;
+    if ((tool !== 'ruler' && tool !== 'calibrate') || !isDrawingRuler.current) return;
+    const pts = currentRulerPointsRef.current;
+    if (pts.length === 0) return;
+
+    const stage = e.target.getStage();
+    const pos = stage.getRelativePointerPosition();
+    if (!pos) return;
+    
+    const dx = Math.abs(pos.x - pts[0]);
+    const dy = Math.abs(pos.y - pts[1]);
+    
+    let newX = pos.x;
+    let newY = pos.y;
+    
+    if (dx > dy) {
+      newY = pts[1];
+    } else {
+      newX = pts[0];
+    }
+
+    setCurrentRulerPoints([pts[0], pts[1], newX, newY]);
+  }, []);
+
+  const handleStageMouseUp = useCallback(() => {
+    const tool = activeToolRef.current;
+    if (tool === 'ruler' || tool === 'calibrate') {
+      isDrawingRuler.current = false;
+      const pts = currentRulerPointsRef.current;
+      
+      const dx = pts[2] - pts[0];
+      const dy = pts[3] - pts[1];
+      const distancePx = Math.sqrt(dx * dx + dy * dy);
+      
+      if (tool === 'calibrate' && onAddCalibrationLineRef.current && distancePx >= 1) {
+        onAddCalibrationLineRef.current(distancePx);
+        setCurrentRulerPoints([]);
+      }
+    }
+  }, []);
+
+  const handleTouchMove = useCallback((e: any) => {
     e.evt.preventDefault();
     const touch1 = e.evt.touches[0];
     const touch2 = e.evt.touches[1];
@@ -129,72 +220,26 @@ export const FloorPlanEditor: React.FC<FloorPlanEditorProps> = ({
     } else if (touch1 && !touch2) {
       handleStageMouseMove(e);
     }
-  };
+  }, [handleStageMouseMove]);
 
-  const handleTouchEnd = () => {
+  const handleTouchEnd = useCallback(() => {
     lastDist.current = 0;
     lastCenter.current = null;
     handleStageMouseUp();
-  };
+  }, [handleStageMouseUp]);
 
-  const [currentRulerPoints, setCurrentRulerPoints] = useState<number[]>([]);
-  const isDrawingRuler = useRef(false);
-
-  useEffect(() => {
-    if (activeTool !== 'ruler' && activeTool !== 'calibrate') {
-      setCurrentRulerPoints([]);
-      isDrawingRuler.current = false;
+  const handleTouchStart = useCallback((e: any) => {
+    if (e.evt.touches.length === 1) {
+      handleStageMouseDown(e);
     }
-  }, [activeTool]);
+  }, [handleStageMouseDown]);
 
-  const handleStageMouseDown = (e: any) => {
-    if (activeTool !== 'ruler' && activeTool !== 'calibrate') return;
-    const stage = e.target.getStage();
-    const pos = stage.getRelativePointerPosition();
-    if (pos) {
-      setCurrentRulerPoints([pos.x, pos.y, pos.x, pos.y]);
-      isDrawingRuler.current = true;
-    }
-  };
-
-  const handleStageMouseMove = (e: any) => {
-    if ((activeTool !== 'ruler' && activeTool !== 'calibrate') || !isDrawingRuler.current || currentRulerPoints.length === 0) return;
-    const stage = e.target.getStage();
-    const pos = stage.getRelativePointerPosition();
-    if (!pos) return;
-    
-    const dx = Math.abs(pos.x - currentRulerPoints[0]);
-    const dy = Math.abs(pos.y - currentRulerPoints[1]);
-    
-    let newX = pos.x;
-    let newY = pos.y;
-    
-    if (dx > dy) {
-      newY = currentRulerPoints[1];
-    } else {
-      newX = currentRulerPoints[0];
-    }
-
-    setCurrentRulerPoints([currentRulerPoints[0], currentRulerPoints[1], newX, newY]);
-  };
-
-  const handleStageMouseUp = () => {
-    if (activeTool === 'ruler' || activeTool === 'calibrate') {
-      isDrawingRuler.current = false;
-      
-      const dx = currentRulerPoints[2] - currentRulerPoints[0];
-      const dy = currentRulerPoints[3] - currentRulerPoints[1];
-      const distancePx = Math.sqrt(dx * dx + dy * dy);
-      
-      if (activeTool === 'calibrate' && onAddCalibrationLine && distancePx >= 1) {
-        onAddCalibrationLine(distancePx);
-        setCurrentRulerPoints([]);
-      }
-    }
-  };
+  const isDraggable = activeTool === 'move';
+  const isFurnitureDraggable = activeTool === 'furniture' || activeTool === 'move';
+  const ppm = pixelsPerMeter || 100;
 
   return (
-    <div ref={containerRef} className="canvas-container" style={{ cursor: activeTool === 'move' ? 'grab' : 'crosshair' }}>
+    <div ref={containerRef} className="canvas-container" style={{ cursor: isDraggable ? 'grab' : 'crosshair' }}>
       <Stage
         width={dimensions.width}
         height={dimensions.height}
@@ -202,20 +247,15 @@ export const FloorPlanEditor: React.FC<FloorPlanEditorProps> = ({
         onMouseDown={handleStageMouseDown}
         onMouseMove={handleStageMouseMove}
         onMouseUp={handleStageMouseUp}
-        onTouchStart={(e) => {
-          if (e.evt.touches.length === 1) {
-            handleStageMouseDown(e);
-          }
-        }}
+        onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         scaleX={stageScale}
         scaleY={stageScale}
         x={stagePos.x}
         y={stagePos.y}
-        draggable={activeTool === 'move'}
+        draggable={isDraggable}
         onDragEnd={handleDragEnd}
-        className={activeTool === 'move' ? 'cursor-grab active:cursor-grabbing' : 'cursor-crosshair'}
       >
         <Layer>
           {image && (
@@ -226,17 +266,17 @@ export const FloorPlanEditor: React.FC<FloorPlanEditorProps> = ({
             />
           )}
           {furnitures.map(f => (
-            <FurnitureItem 
+            <FurnitureItemWrapper 
               key={f.id} 
               data={f} 
-              pixelsPerMeter={pixelsPerMeter || 100} // Fallback to 100px = 1m if not set
-              onChange={(updates) => updateFurniture(f.id, updates)}
-              draggable={activeTool === 'furniture' || activeTool === 'move'}
+              pixelsPerMeter={ppm}
+              updateFurniture={updateFurniture}
+              draggable={isFurnitureDraggable}
             />
           ))}
           <RulerTool 
              points={currentRulerPoints} 
-             pixelsPerMeter={pixelsPerMeter || 100} 
+             pixelsPerMeter={ppm} 
              scale={stageScale}
              unit={unit}
           />
@@ -244,4 +284,4 @@ export const FloorPlanEditor: React.FC<FloorPlanEditorProps> = ({
       </Stage>
     </div>
   );
-};
+});
