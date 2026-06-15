@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { Stage, Layer, Image as KonvaImage } from 'react-konva';
+import type Konva from 'konva';
 import type { ToolType } from './Toolbar';
 import { FurnitureItem } from './FurnitureItem';
 import { RulerTool } from './RulerTool';
@@ -36,6 +37,19 @@ const FurnitureItemWrapper = React.memo(({ data, pixelsPerMeter, updateFurniture
   );
 });
 
+function getDistance(p1: Touch, p2: Touch) {
+  return Math.sqrt(
+    (p2.clientX - p1.clientX) ** 2 + (p2.clientY - p1.clientY) ** 2
+  );
+}
+
+function getCenter(p1: Touch, p2: Touch) {
+  return {
+    x: (p1.clientX + p2.clientX) / 2,
+    y: (p1.clientY + p2.clientY) / 2,
+  };
+}
+
 export const FloorPlanEditor: React.FC<FloorPlanEditorProps> = React.memo(({
   activeTool,
   image,
@@ -46,11 +60,12 @@ export const FloorPlanEditor: React.FC<FloorPlanEditorProps> = React.memo(({
   unit = 'm'
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<Konva.Stage>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [stagePos, setStagePos] = useState({ x: 0, y: 0 });
   const [stageScale, setStageScale] = useState(1);
 
-  // Resize observer to keep canvas full screen
+  // Resize observer
   useEffect(() => {
     if (!containerRef.current) return;
     const observer = new ResizeObserver((entries) => {
@@ -63,13 +78,13 @@ export const FloorPlanEditor: React.FC<FloorPlanEditorProps> = React.memo(({
     return () => observer.disconnect();
   }, []);
 
+  // ========== WHEEL ZOOM (desktop) — imperative for smoothness ==========
   const handleWheel = useCallback((e: any) => {
     e.evt.preventDefault();
+    const stage = stageRef.current;
+    if (!stage) return;
 
     const scaleBy = 1.05;
-    const stage = e.target.getStage();
-    if (!stage) return;
-    
     const pointer = stage.getPointerPosition();
     if (!pointer) return;
 
@@ -79,33 +94,131 @@ export const FloorPlanEditor: React.FC<FloorPlanEditorProps> = React.memo(({
       y: (pointer.y - stage.y()) / oldScale,
     };
 
-    // deltaY < 0 means scrolling up / zooming in
     const newScale = e.evt.deltaY < 0 ? oldScale * scaleBy : oldScale / scaleBy;
-    
+
+    // Apply directly to stage — no React re-render
+    stage.scaleX(newScale);
+    stage.scaleY(newScale);
+    stage.x(pointer.x - mousePointTo.x * newScale);
+    stage.y(pointer.y - mousePointTo.y * newScale);
+    stage.batchDraw();
+
+    // Sync React state (for other components that read it)
     setStageScale(newScale);
-    setStagePos({
-      x: pointer.x - mousePointTo.x * newScale,
-      y: pointer.y - mousePointTo.y * newScale,
-    });
+    setStagePos({ x: stage.x(), y: stage.y() });
   }, []);
 
+  // ========== STAGE DRAG (move tool) ==========
   const handleDragEnd = useCallback((e: any) => {
     if (e.target === e.target.getStage()) {
       setStagePos({ x: e.target.x(), y: e.target.y() });
     }
   }, []);
 
-  const lastCenter = useRef<{x: number, y: number} | null>(null);
+  // ========== TOUCH: pinch-to-zoom — fully imperative ==========
   const lastDist = useRef(0);
+  const lastCenter = useRef<{ x: number; y: number } | null>(null);
+  const isPinching = useRef(false);
 
+  // Attach native touch listeners for zero-delay response
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        isPinching.current = true;
+        lastDist.current = getDistance(e.touches[0], e.touches[1]);
+        lastCenter.current = getCenter(e.touches[0], e.touches[1]);
+      }
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      const stage = stageRef.current;
+      if (!stage) return;
+
+      if (e.touches.length === 2 && isPinching.current) {
+        e.preventDefault();
+
+        if (stage.isDragging()) {
+          stage.stopDrag();
+        }
+
+        const t1 = e.touches[0];
+        const t2 = e.touches[1];
+        const dist = getDistance(t1, t2);
+        const center = getCenter(t1, t2);
+
+        if (!lastCenter.current || !lastDist.current) {
+          lastDist.current = dist;
+          lastCenter.current = center;
+          return;
+        }
+
+        const oldScale = stage.scaleX();
+        const pointTo = {
+          x: (lastCenter.current.x - stage.x()) / oldScale,
+          y: (lastCenter.current.y - stage.y()) / oldScale,
+        };
+
+        const newScale = oldScale * (dist / lastDist.current);
+
+        // Pan: follow the center of the two fingers
+        const dx = center.x - lastCenter.current.x;
+        const dy = center.y - lastCenter.current.y;
+
+        const newPos = {
+          x: center.x - pointTo.x * newScale + dx,
+          y: center.y - pointTo.y * newScale + dy,
+        };
+
+        // Apply directly — no React render cycle
+        stage.scaleX(newScale);
+        stage.scaleY(newScale);
+        stage.x(newPos.x);
+        stage.y(newPos.y);
+        stage.batchDraw();
+
+        lastDist.current = dist;
+        lastCenter.current = center;
+      }
+    };
+
+    const onTouchEnd = () => {
+      if (isPinching.current) {
+        isPinching.current = false;
+        lastDist.current = 0;
+        lastCenter.current = null;
+
+        // Sync React state after gesture ends
+        const stage = stageRef.current;
+        if (stage) {
+          setStageScale(stage.scaleX());
+          setStagePos({ x: stage.x(), y: stage.y() });
+        }
+      }
+    };
+
+    // Use passive: false so we can preventDefault and avoid browser zoom
+    container.addEventListener('touchstart', onTouchStart, { passive: false });
+    container.addEventListener('touchmove', onTouchMove, { passive: false });
+    container.addEventListener('touchend', onTouchEnd);
+
+    return () => {
+      container.removeEventListener('touchstart', onTouchStart);
+      container.removeEventListener('touchmove', onTouchMove);
+      container.removeEventListener('touchend', onTouchEnd);
+    };
+  }, []);
+
+  // ========== RULER / CALIBRATION DRAWING ==========
   const [currentRulerPoints, setCurrentRulerPoints] = useState<number[]>([]);
   const isDrawingRuler = useRef(false);
   const activeToolRef = useRef(activeTool);
   activeToolRef.current = activeTool;
-
   const onAddCalibrationLineRef = useRef(onAddCalibrationLine);
   onAddCalibrationLineRef.current = onAddCalibrationLine;
-
   const currentRulerPointsRef = useRef(currentRulerPoints);
   currentRulerPointsRef.current = currentRulerPoints;
 
@@ -117,6 +230,7 @@ export const FloorPlanEditor: React.FC<FloorPlanEditorProps> = React.memo(({
   }, [activeTool]);
 
   const handleStageMouseDown = useCallback((e: any) => {
+    if (isPinching.current) return;
     if (activeToolRef.current !== 'ruler' && activeToolRef.current !== 'calibrate') return;
     const stage = e.target.getStage();
     const pos = stage.getRelativePointerPosition();
@@ -127,6 +241,7 @@ export const FloorPlanEditor: React.FC<FloorPlanEditorProps> = React.memo(({
   }, []);
 
   const handleStageMouseMove = useCallback((e: any) => {
+    if (isPinching.current) return;
     const tool = activeToolRef.current;
     if ((tool !== 'ruler' && tool !== 'calibrate') || !isDrawingRuler.current) return;
     const pts = currentRulerPointsRef.current;
@@ -135,13 +250,13 @@ export const FloorPlanEditor: React.FC<FloorPlanEditorProps> = React.memo(({
     const stage = e.target.getStage();
     const pos = stage.getRelativePointerPosition();
     if (!pos) return;
-    
+
     const dx = Math.abs(pos.x - pts[0]);
     const dy = Math.abs(pos.y - pts[1]);
-    
+
     let newX = pos.x;
     let newY = pos.y;
-    
+
     if (dx > dy) {
       newY = pts[1];
     } else {
@@ -156,11 +271,12 @@ export const FloorPlanEditor: React.FC<FloorPlanEditorProps> = React.memo(({
     if (tool === 'ruler' || tool === 'calibrate') {
       isDrawingRuler.current = false;
       const pts = currentRulerPointsRef.current;
-      
+      if (pts.length < 4) return;
+
       const dx = pts[2] - pts[0];
       const dy = pts[3] - pts[1];
       const distancePx = Math.sqrt(dx * dx + dy * dy);
-      
+
       if (tool === 'calibrate' && onAddCalibrationLineRef.current && distancePx >= 1) {
         onAddCalibrationLineRef.current(distancePx);
         setCurrentRulerPoints([]);
@@ -168,79 +284,34 @@ export const FloorPlanEditor: React.FC<FloorPlanEditorProps> = React.memo(({
     }
   }, []);
 
+  const handleTouchStart = useCallback((e: any) => {
+    if (isPinching.current) return;
+    if (e.evt.touches.length === 1) {
+      handleStageMouseDown(e);
+    }
+  }, [handleStageMouseDown]);
+
   const handleTouchMove = useCallback((e: any) => {
-    e.evt.preventDefault();
-    const touch1 = e.evt.touches[0];
-    const touch2 = e.evt.touches[1];
-
-    if (touch1 && touch2) {
-      // pinch to zoom
-      const stage = e.target.getStage();
-      if (!stage) return;
-      if (stage.isDragging()) {
-        stage.stopDrag();
-      }
-
-      const p1 = { x: touch1.clientX, y: touch1.clientY };
-      const p2 = { x: touch2.clientX, y: touch2.clientY };
-
-      const dist = Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
-
-      if (!lastDist.current) {
-        lastDist.current = dist;
-      }
-
-      const newCenter = {
-        x: (p1.x + p2.x) / 2,
-        y: (p1.y + p2.y) / 2,
-      };
-
-      if (!lastCenter.current) {
-        lastCenter.current = newCenter;
-        return;
-      }
-
-      const pointTo = {
-        x: (newCenter.x - stage.x()) / stage.scaleX(),
-        y: (newCenter.y - stage.y()) / stage.scaleY(),
-      };
-
-      const scaleBy = dist / lastDist.current;
-      let newScale = stage.scaleX() * scaleBy;
-
-      const newPos = {
-        x: newCenter.x - pointTo.x * newScale,
-        y: newCenter.y - pointTo.y * newScale,
-      };
-
-      setStageScale(newScale);
-      setStagePos(newPos);
-      lastDist.current = dist;
-      lastCenter.current = newCenter;
-    } else if (touch1 && !touch2) {
+    if (isPinching.current) return;
+    if (e.evt.touches.length === 1) {
       handleStageMouseMove(e);
     }
   }, [handleStageMouseMove]);
 
   const handleTouchEnd = useCallback(() => {
-    lastDist.current = 0;
-    lastCenter.current = null;
-    handleStageMouseUp();
-  }, [handleStageMouseUp]);
-
-  const handleTouchStart = useCallback((e: any) => {
-    if (e.evt.touches.length === 1) {
-      handleStageMouseDown(e);
+    if (!isPinching.current) {
+      handleStageMouseUp();
     }
-  }, [handleStageMouseDown]);
+  }, [handleStageMouseUp]);
 
   const isDraggable = activeTool === 'move';
   const isFurnitureDraggable = activeTool === 'furniture' || activeTool === 'move';
   const ppm = pixelsPerMeter || 100;
 
   return (
-    <div ref={containerRef} className="canvas-container" style={{ cursor: isDraggable ? 'grab' : 'crosshair' }}>
+    <div ref={containerRef} className="canvas-container" style={{ cursor: isDraggable ? 'grab' : 'crosshair', touchAction: 'none' }}>
       <Stage
+        ref={stageRef}
         width={dimensions.width}
         height={dimensions.height}
         onWheel={handleWheel}
@@ -266,17 +337,17 @@ export const FloorPlanEditor: React.FC<FloorPlanEditorProps> = React.memo(({
             />
           )}
           {furnitures.map(f => (
-            <FurnitureItemWrapper 
-              key={f.id} 
-              data={f} 
+            <FurnitureItemWrapper
+              key={f.id}
+              data={f}
               pixelsPerMeter={ppm}
               updateFurniture={updateFurniture}
               draggable={isFurnitureDraggable}
             />
           ))}
-          <RulerTool 
-             points={currentRulerPoints} 
-             pixelsPerMeter={ppm} 
+          <RulerTool
+             points={currentRulerPoints}
+             pixelsPerMeter={ppm}
              scale={stageScale}
              unit={unit}
           />
