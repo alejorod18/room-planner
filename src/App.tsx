@@ -5,7 +5,7 @@ import { GlassPanel } from './components/GlassPanel';
 import { FloorPlanEditor } from './components/FloorPlanEditor';
 import { useEditorState } from './hooks/useEditorState';
 import { saveProject, updateProject, getProjectsList, loadProject, deleteProject } from './services/storage';
-import { Loader, Folder, Save, X, Trash2, Upload, Plus, FolderOpen, Check, Pencil, RotateCw, Copy } from 'lucide-react';
+import { Loader, Folder, Save, X, Trash2, Upload, Plus, FolderOpen, Check, Pencil, RotateCw, Copy, Download, FileJson } from 'lucide-react';
 import './App.css';
 
 function App() {
@@ -74,6 +74,42 @@ function App() {
   useEffect(() => {
     loadProjectsList();
   }, []);
+
+  const handleExportFile = () => {
+    const state = exportState();
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", (projectName || "proyecto") + ".json");
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+  };
+
+  const handleImportFile = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = (e: any) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const state = JSON.parse(event.target?.result as string);
+          // Set null project ID so it's treated as a new local project
+          const newName = file.name.replace('.json', '');
+          importState(state, null, newName);
+          setActiveTool('move');
+          setShowProjectsModal(false);
+        } catch (e) {
+          alert('Error al leer el archivo. Asegúrate de que sea un archivo JSON válido exportado previamente.');
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  };
 
   useEffect(() => {
     if (!projectId || !projectName || !image) return;
@@ -192,7 +228,25 @@ function App() {
             </GlassPanel>
           )}
 
-          <GlassPanel style={{ padding: '8px' }} className="pointer-events-auto">
+          <GlassPanel style={{ padding: '8px', display: 'flex', gap: '8px' }} className="pointer-events-auto">
+            {image && (
+              <button 
+                onClick={handleExportFile} 
+                className="btn-secondary" 
+                style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                title="Exportar a Archivo (.json)"
+              >
+                <Download size={18} strokeWidth={2} />
+              </button>
+            )}
+            <button 
+              onClick={handleImportFile} 
+              className="btn-secondary" 
+              style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+              title="Importar Archivo (.json)"
+            >
+              <FileJson size={18} strokeWidth={2} />
+            </button>
             <button 
               onClick={() => setShowProjectsModal(true)} 
               className="btn-primary" 
