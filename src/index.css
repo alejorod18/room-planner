@@ -162,6 +162,14 @@ body {
   z-index: -1;
 }
 
+.toolbar-divider {
+  width: 1px;
+  height: 28px;
+  background: var(--glass-border-highlight);
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+
 /* Modals & Dialogs */
 .modal-overlay {
   position: absolute;

@@ -15,6 +15,7 @@ function App() {
   const [editingFurnitureId, setEditingFurnitureId] = useState<string | null>(null);
   const [projectsList, setProjectsList] = useState<any[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [showFurniturePanel, setShowFurniturePanel] = useState(true);
   
   const {
     image,
@@ -313,7 +314,7 @@ function App() {
           )}
 
           {/* Panel de Muebles Agregados */}
-          {activeTool !== 'calibrate' && image && furnitures.length > 0 && (
+          {showFurniturePanel && activeTool !== 'calibrate' && image && furnitures.length > 0 && (
             <GlassPanel style={{ padding: '16px', width: '320px', maxHeight: '50vh', overflowY: 'auto' }} className="pointer-events-auto">
               <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '12px', color: 'var(--text-color)' }}>Muebles Agregados</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -581,7 +582,13 @@ function App() {
       )}
 
       {/* Toolbar */}
-      <Toolbar activeTool={activeTool} onSelectTool={handleToolSelect} />
+      <Toolbar
+        activeTool={activeTool}
+        onSelectTool={handleToolSelect}
+        showFurniturePanel={showFurniturePanel}
+        onToggleFurniturePanel={() => setShowFurniturePanel(prev => !prev)}
+        hasFurnitures={!!image && furnitures.length > 0}
+      />
     </div>
   );
 }
