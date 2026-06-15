@@ -74,6 +74,69 @@ export const FloorPlanEditor: React.FC<FloorPlanEditorProps> = ({
     }
   };
 
+  const lastCenter = useRef<{x: number, y: number} | null>(null);
+  const lastDist = useRef(0);
+
+  const handleTouchMove = (e: any) => {
+    e.evt.preventDefault();
+    const touch1 = e.evt.touches[0];
+    const touch2 = e.evt.touches[1];
+
+    if (touch1 && touch2) {
+      // pinch to zoom
+      const stage = e.target.getStage();
+      if (!stage) return;
+      if (stage.isDragging()) {
+        stage.stopDrag();
+      }
+
+      const p1 = { x: touch1.clientX, y: touch1.clientY };
+      const p2 = { x: touch2.clientX, y: touch2.clientY };
+
+      const dist = Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
+
+      if (!lastDist.current) {
+        lastDist.current = dist;
+      }
+
+      const newCenter = {
+        x: (p1.x + p2.x) / 2,
+        y: (p1.y + p2.y) / 2,
+      };
+
+      if (!lastCenter.current) {
+        lastCenter.current = newCenter;
+        return;
+      }
+
+      const pointTo = {
+        x: (newCenter.x - stage.x()) / stage.scaleX(),
+        y: (newCenter.y - stage.y()) / stage.scaleY(),
+      };
+
+      const scaleBy = dist / lastDist.current;
+      let newScale = stage.scaleX() * scaleBy;
+
+      const newPos = {
+        x: newCenter.x - pointTo.x * newScale,
+        y: newCenter.y - pointTo.y * newScale,
+      };
+
+      setStageScale(newScale);
+      setStagePos(newPos);
+      lastDist.current = dist;
+      lastCenter.current = newCenter;
+    } else if (touch1 && !touch2) {
+      handleStageMouseMove(e);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    lastDist.current = 0;
+    lastCenter.current = null;
+    handleStageMouseUp();
+  };
+
   const [currentRulerPoints, setCurrentRulerPoints] = useState<number[]>([]);
   const isDrawingRuler = useRef(false);
 
@@ -139,6 +202,13 @@ export const FloorPlanEditor: React.FC<FloorPlanEditorProps> = ({
         onMouseDown={handleStageMouseDown}
         onMouseMove={handleStageMouseMove}
         onMouseUp={handleStageMouseUp}
+        onTouchStart={(e) => {
+          if (e.evt.touches.length === 1) {
+            handleStageMouseDown(e);
+          }
+        }}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
         scaleX={stageScale}
         scaleY={stageScale}
         x={stagePos.x}

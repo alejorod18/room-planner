@@ -331,3 +331,54 @@ h1 {
 .icon-btn:active {
   transform: scale(0.95);
 }
+
+/* Mobile Responsive Adjustments */
+@media (max-width: 768px) {
+  .app-header {
+    padding: 12px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .app-header .glass-panel {
+    width: 100%;
+    min-width: unset;
+  }
+
+  .app-header > div:last-child {
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  /* Make sure right floating panels fit and don't overlap the toolbar */
+  .floating-panel-wrapper {
+    position: absolute;
+    top: auto;
+    bottom: 90px; /* Above toolbar */
+    right: 12px;
+    left: 12px;
+    width: auto !important;
+    max-width: 100%;
+    max-height: 40vh !important;
+  }
+
+  /* Update floating panels style to have flexible widths on mobile */
+  .glass-panel[style*="width: 320px"],
+  .glass-panel[style*="width: 350px"] {
+    width: auto !important;
+    max-width: 100%;
+  }
+
+  .toolbar-container {
+    bottom: 16px;
+    padding: 6px;
+    gap: 4px;
+    width: auto;
+  }
+
+  .toolbar-btn {
+    width: 40px;
+    height: 40px;
+  }
+}

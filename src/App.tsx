@@ -260,7 +260,7 @@ function App() {
       </div>
 
       {/* Panel de Herramientas flotante */}
-      <div style={{ position: 'absolute', top: '100px', right: '20px', zIndex: 10, display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'flex-end' }}>
+      <div className="floating-panel-wrapper" style={{ position: 'absolute', top: '100px', right: '20px', zIndex: 10, display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'flex-end' }}>
           
           {/* Panel de Calibración */}
           {activeTool === 'calibrate' && (
