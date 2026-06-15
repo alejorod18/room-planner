@@ -38,9 +38,7 @@ export const FurnitureItem: React.FC<FurnitureItemProps> = React.memo(({ data, p
         stroke="rgba(10, 132, 255, 0.8)"
         strokeWidth={2}
         cornerRadius={4}
-        shadowColor="rgba(0,0,0,0.3)"
-        shadowBlur={10}
-        shadowOffset={{ x: 0, y: 4 }}
+        perfectDrawEnabled={false}
       />
       <Text
         text={data.label}
@@ -52,6 +50,8 @@ export const FurnitureItem: React.FC<FurnitureItemProps> = React.memo(({ data, p
         fontSize={fontSize}
         fontFamily="Inter"
         wrap="none"
+        perfectDrawEnabled={false}
+        listening={false} // Text doesn't need to intercept touch events
       />
     </Group>
   );

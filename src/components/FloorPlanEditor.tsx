@@ -310,14 +310,17 @@ export const FloorPlanEditor: React.FC<FloorPlanEditorProps> = React.memo(({
         draggable={isDraggable}
         onDragEnd={handleDragEnd}
       >
-        <Layer>
+        <Layer perfectDrawEnabled={false} listening={false}>
           {image && (
             <KonvaImage
               image={image}
               x={0}
               y={0}
+              perfectDrawEnabled={false}
             />
           )}
+        </Layer>
+        <Layer>
           {furnitures.map(f => (
             <FurnitureItemWrapper
               key={f.id}
