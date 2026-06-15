@@ -20,31 +20,33 @@ export const Toolbar: React.FC<ToolbarProps> = ({ activeTool, onSelectTool }) =>
   ] as const;
 
   return (
-    <GlassPanel variant="pill" className="toolbar-container">
-      {tools.map((tool) => {
-        const Icon = tool.icon;
-        const isActive = activeTool === tool.id;
-        
-        return (
-          <motion.button
-            key={tool.id}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => onSelectTool(tool.id)}
-            className={`toolbar-btn ${isActive ? 'active' : ''}`}
-            title={tool.label}
-          >
-            {isActive && (
-              <motion.div
-                layoutId="active-pill"
-                className="toolbar-btn-active-bg"
-                transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-              />
-            )}
-            <Icon size={24} strokeWidth={isActive ? 2 : 1.5} />
-          </motion.button>
-        );
-      })}
-    </GlassPanel>
+    <div className="toolbar-wrapper">
+      <GlassPanel variant="pill" className="toolbar-container">
+        {tools.map((tool) => {
+          const Icon = tool.icon;
+          const isActive = activeTool === tool.id;
+          
+          return (
+            <motion.button
+              key={tool.id}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => onSelectTool(tool.id)}
+              className={`toolbar-btn ${isActive ? 'active' : ''}`}
+              title={tool.label}
+            >
+              {isActive && (
+                <motion.div
+                  layoutId="active-pill"
+                  className="toolbar-btn-active-bg"
+                  transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                />
+              )}
+              <Icon size={24} strokeWidth={isActive ? 2 : 1.5} />
+            </motion.button>
+          );
+        })}
+      </GlassPanel>
+    </div>
   );
 };

@@ -111,16 +111,23 @@ body {
   border-radius: 9999px;
 }
 
-.toolbar-container {
+.toolbar-wrapper {
   position: fixed;
   bottom: 32px;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 0;
+  right: 0;
   z-index: 50;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.toolbar-container {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 8px;
+  pointer-events: auto;
 }
 
 .toolbar-btn {
@@ -333,52 +340,180 @@ h1 {
 }
 
 /* Mobile Responsive Adjustments */
+
+/* Prevent iOS tap highlight and touch callout */
+* {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+/* Ensure inputs don't auto-zoom on iOS (font-size >= 16px) */
 @media (max-width: 768px) {
+  .glass-input {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 768px) {
+  /* ---- Header ---- */
   .app-header {
-    padding: 12px;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
+    padding: 10px;
+    padding-top: calc(10px + env(safe-area-inset-top));
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 8px;
   }
 
-  .app-header .glass-panel {
-    width: 100%;
-    min-width: unset;
+  /* Project info panel: shrink to minimum */
+  .header-info-panel {
+    padding: 10px !important;
+    min-width: 0 !important;
+    flex: 1;
+    overflow: hidden;
   }
 
-  .app-header > div:last-child {
-    justify-content: space-between;
-    width: 100%;
+  .header-info-panel h1 {
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
-  /* Make sure right floating panels fit and don't overlap the toolbar */
+  .header-info-panel .text-muted {
+    font-size: 11px;
+  }
+
+  /* Action buttons row */
+  .header-actions {
+    gap: 6px !important;
+    flex-shrink: 0;
+  }
+
+  .header-actions .glass-panel {
+    padding: 6px !important;
+  }
+
+  /* Hide text labels on mobile, keep icons only */
+  .btn-label {
+    display: none;
+  }
+
+  .header-actions .btn-primary,
+  .header-actions .btn-secondary {
+    padding: 8px !important;
+    gap: 0 !important;
+  }
+
+  /* ---- Floating Side Panels ---- */
   .floating-panel-wrapper {
-    position: absolute;
-    top: auto;
-    bottom: 90px; /* Above toolbar */
-    right: 12px;
-    left: 12px;
+    position: fixed !important;
+    top: auto !important;
+    bottom: 80px !important;
+    right: 10px !important;
+    left: 10px !important;
     width: auto !important;
-    max-width: 100%;
-    max-height: 40vh !important;
+    align-items: stretch !important;
+    z-index: 45 !important;
   }
 
-  /* Update floating panels style to have flexible widths on mobile */
-  .glass-panel[style*="width: 320px"],
-  .glass-panel[style*="width: 350px"] {
-    width: auto !important;
-    max-width: 100%;
+  .floating-panel-wrapper .glass-panel {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 35vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* ---- Welcome Panel (no image loaded) ---- */
+  .welcome-panel {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* ---- Bottom Toolbar ---- */
+  .toolbar-wrapper {
+    bottom: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom));
   }
 
   .toolbar-container {
-    bottom: 16px;
-    padding: 6px;
-    gap: 4px;
-    width: auto;
+    padding: 6px 10px;
+    gap: 2px;
+    max-width: calc(100vw - 24px);
   }
 
   .toolbar-btn {
-    width: 40px;
-    height: 40px;
+    width: 42px;
+    height: 42px;
+  }
+
+  .toolbar-btn svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  /* ---- Modals ---- */
+  .modal-overlay {
+    padding: 12px;
+    align-items: flex-end;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  }
+
+  .modal-content {
+    max-width: 100%;
+    width: 100%;
+    padding: 20px;
+    border-radius: 20px 20px 16px 16px;
+    max-height: 80vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .modal-header {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+
+  /* ---- Typography ---- */
+  h1 {
+    font-size: 16px;
+  }
+
+  /* ---- Icon buttons: larger touch targets ---- */
+  .icon-btn {
+    padding: 8px;
+    min-width: 36px;
+    min-height: 36px;
+  }
+
+  /* ---- Unit switcher compact ---- */
+  .unit-switcher {
+    margin-top: 2px !important;
   }
 }
+
+/* Extra small devices (iPhone SE etc) */
+@media (max-width: 380px) {
+  .app-header {
+    padding: 8px;
+  }
+
+  .header-info-panel {
+    padding: 8px !important;
+  }
+
+  .header-info-panel h1 {
+    font-size: 13px;
+  }
+
+  .unit-switcher {
+    display: none;
+  }
+
+  .toolbar-btn {
+    width: 38px;
+    height: 38px;
+  }
+}
+

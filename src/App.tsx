@@ -178,12 +178,12 @@ function App() {
     <div className="app-container">
       {/* Top Header/Status Area */}
       <div className="app-header" style={{ display: 'flex', justifyContent: 'space-between', width: '100%', padding: '20px' }}>
-        <GlassPanel style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '250px' }} className="pointer-events-auto">
+        <GlassPanel style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '250px' }} className="pointer-events-auto header-info-panel">
           <h1>{projectName || 'Room Planner'}</h1>
           <p className="text-muted">
             {pixelsPerMeter ? `Escala: ${Math.round(pixelsPerMeter)} px/m` : 'Escala: No definida'}
           </p>
-          <div style={{ display: 'flex', gap: '4px', background: 'rgba(255,255,255,0.05)', padding: '4px', borderRadius: '8px', border: '1px solid var(--glass-border)', marginTop: '4px' }}>
+          <div className="unit-switcher" style={{ display: 'flex', gap: '4px', background: 'rgba(255,255,255,0.05)', padding: '4px', borderRadius: '8px', border: '1px solid var(--glass-border)', marginTop: '4px' }}>
             {(['m', 'cm', 'mm'] as const).map(u => (
               <button 
                 key={u}
@@ -211,7 +211,7 @@ function App() {
           </div>
         </GlassPanel>
 
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+        <div className="header-actions" style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
           {image && (
             <GlassPanel style={{ padding: '8px' }} className="pointer-events-auto">
               <button 
@@ -222,7 +222,7 @@ function App() {
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   {isSaving ? <Loader size={18} strokeWidth={2} className="animate-spin" /> : <Save size={18} strokeWidth={2} />}
-                  {isSaving ? 'Guardando...' : 'Guardar'}
+                  <span className="btn-label">{isSaving ? 'Guardando...' : 'Guardar'}</span>
                 </div>
               </button>
             </GlassPanel>
@@ -253,7 +253,7 @@ function App() {
               style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
             >
               <Folder size={18} strokeWidth={2} />
-              Mis Proyectos
+              <span className="btn-label">Mis Proyectos</span>
             </button>
           </GlassPanel>
         </div>
@@ -408,7 +408,7 @@ function App() {
 
           {/* Panel Principal Inicio */}
           {activeTool !== 'calibrate' && !image && (
-            <GlassPanel style={{ padding: '20px', width: '350px' }} className="pointer-events-auto">
+            <GlassPanel style={{ padding: '20px', width: '350px' }} className="pointer-events-auto welcome-panel">
               <h2 style={{ marginBottom: '16px', fontSize: '18px' }}>Bienvenido a PlanFixer</h2>
               <p className="text-muted mb-4">Para empezar un nuevo proyecto, sube el plano de tu casa.</p>
               <button onClick={() => {
